@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Custom chat window</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="../publish/botchat.css" rel="stylesheet" />
+    <link href="../publish/chat-fab/chatfab.css" rel="stylesheet" />
+    <link href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" rel="stylesheet" integrity="sha384-wvfXpqpZZVQGK6TAh5PVlGOfQNHSoD2xbE+QkPxCAFlNEevoEH3Sl0sibVcOQVnN" crossorigin="anonymous">
+  </head>
+  <body>
+    <div class="header">
+      <h1>Bot Chat Demo</h1>
+      <h3>Embeded bot chat window</h3>
+    </div>
+
+    <div class="contact-fab">
+      <div id="floating-button" onclick="openChat()">
+        <p class="plus"><i class="fa fa-comment-o" aria-hidden="true"></i></p>
+        <p class="edit"><i class="fa fa-commenting-o" aria-hidden="true"></i></p>
+      </div>
+    </div>
+
+    <div id="bot-chat" class="bot-style"></div>
+    <script data-main="../publish/scripts/main" src="../publish/scripts/require.js"></script>
+  </body>
+</html>
