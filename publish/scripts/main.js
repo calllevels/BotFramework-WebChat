@@ -1,5 +1,5 @@
 requirejs(["../botchat"], function (BotChat) {
-  console.log(localStorage);
+
   chatInit();
 
   function chatInit() {
@@ -11,73 +11,108 @@ requirejs(["../botchat"], function (BotChat) {
       id: '1',
       name: 'dbs bot'
     };
-    if (checkStorage()) {
-      var chatConversationId = localStorage.getItem('chatConversationId');
-      var chatToken = localStorage.getItem('chatToken');
 
-      //TODO call back for user session
-      var userSession = checkUserSession(chatConversationId, chatToken);
-      
-
-      if(userSession) {
-        console.log('session valid');
-        userDetails = userSession.user;
-        chatSession(chatToken, userDetails, botDetails)
+    if (localStorage.getItem('chatConversationId') != null && localStorage.getItem('chatToken') != null) {
+      if (localStorage.getItem('chatTime') < Math.round((new Date()).getTime() / 1000)) {
+        // expired get new token
+        getUrl = 'https://dbs-chat-staging.herokuapp.com/bot/token';
+        ajaxCall(getUrl, 'GET', function(res) {
+          switch(res[0]) {
+            case 0:
+              // console.log('Request failed.');
+              chatInit();
+              break;
+            case 1:
+              var chatTokenExchange = res[1];
+              localStorage.setItem('chatConversationId', chatTokenExchange.conversationId);
+              localStorage.setItem('chatToken', chatTokenExchange.token);
+              localStorage.setItem('chatTime', (Math.round((new Date()).getTime() / 1000) + chatTokenExchange.expires_in));
+              chatSession(chatTokenExchange.token, userDetails, botDetails)
+              break;
+          }
+        });
       } else {
-        console.log('session not valid');
-        chatSession(chatToken, userDetails, botDetails)
+        var chatConversationId = localStorage.getItem('chatConversationId');
+        var chatToken = localStorage.getItem('chatToken');
+
+        checkUserSession(chatConversationId, chatToken, function(userSession) {
+          if (userSession == 'no session') {
+            // console.log('session not valid');
+            chatSession(chatToken, userDetails, botDetails);
+          } else {
+            // console.log('session valid');
+            var userId = String(userSession.user.id);
+            userDetails = {
+              id: userId,
+              name: userSession.name
+            }
+            chatSession(chatToken, userDetails, botDetails);
+          }
+        });
       }
     } else {
-      var httpRequest = new XMLHttpRequest();
-      httpRequest.open('GET', 'https://dbs-chat-staging.herokuapp.com/bot/token');
-      httpRequest.onload = function () {
-        if (httpRequest.status === 200) {
-          var chatTokenExchange = JSON.parse(httpRequest.responseText);
-
-          localStorage.setItem('chatConversationId', chatTokenExchange.conversationId);
-          localStorage.setItem('chatToken', chatTokenExchange.token);
-
-          chatSession(chatTokenExchange.token, userDetails, botDetails)
+      getUrl = 'https://dbs-chat-staging.herokuapp.com/bot/token';
+      ajaxCall(getUrl, 'GET', function(res) {
+        switch(res[0]) {
+          case 0:
+            // console.log('Request failed.');
+            chatInit();
+            break;
+          case 1:
+            var chatTokenExchange = res[1];
+            localStorage.setItem('chatConversationId', chatTokenExchange.conversationId);
+            localStorage.setItem('chatToken', chatTokenExchange.token);
+            localStorage.setItem('chatTime', Math.round((new Date()).getTime() / 1000));
+            chatSession(chatTokenExchange.token, userDetails, botDetails)
+            break;
         }
-        else {
-          console.log('Request failed.');
-          chatInit();
-        }
-      }
-      httpRequest.send();
+      });
     }
   }
 
-  function checkStorage() {
-    if (localStorage.getItem('chatConversationId') != null && localStorage.getItem('chatToken') != null) {
-      return true;
-    }
-  }
-
-  function checkUserSession(chatConversationId, chatToken) {
+  function checkUserSession(chatConversationId, chatToken, callback) {
     // for testing include sessionMock
-    // var sessionMock = Math.random() >= 0.5;
+    
     var sessionMock = true;
-    var getUrl = 'https://dbs-chat-staging.herokuapp.com/bot/session'+'/?chatConversationId='+chatConversationId+'&chatToken='+chatToken+'&mock='+sessionMock;
-    var httpRequest = new XMLHttpRequest();
+    var getUrl = 'https://dbs-chat-staging.herokuapp.com/bot/session' + '/?chatConversationId=' + chatConversationId + '&chatToken=' + chatToken + '&mock=' + sessionMock;
 
-    httpRequest.open('GET', getUrl);
-    httpRequest.onload = function () {
-      if (httpRequest.status === 200) {
-        var userState = JSON.parse(httpRequest.responseText);
-        console.log(userState);
-        if (userState.hasOwnProperty('error') && userState.error == 'Unauthorized') {
-          return false;
-        } else {
-          return userState;
-        }
+    ajaxCall(getUrl, 'GET', function(res) {
+      switch (res[0]){
+        case 0:
+          callback('no session');
+          break;
+        case 1:
+          if (res.hasOwnProperty('error') && res.error == 'Unauthorized') {
+            callback('no session');
+            break;
+          } else {
+            callback(res[1]);
+            break;
+          }
       }
-      else {
-        console.log('Request failed.');
-        return false;
+    });
+
+  }
+
+  function ajaxCall(url, methodType, callback) {
+    var xhr = new XMLHttpRequest();
+    xhr.open(methodType, url, true);
+    xhr.send();
+    xhr.onreadystatechange = function () {
+      if (xhr.readyState === 4) {
+        if (xhr.status === 200) {
+          // console.log("xhr done successfully");
+          var respJson = JSON.parse(xhr.responseText);
+          callback([1, respJson]);
+        } else {
+          callback([0]);
+          // console.log("xhr failed");
+        }
+      } else {
+        // console.log("xhr processing going on");
       }
     }
-    httpRequest.send();
+    // console.log("request sent succesfully");
   }
 
   function chatSession(chatToken, userDetails, botDetails) {
@@ -91,15 +126,5 @@ requirejs(["../botchat"], function (BotChat) {
       // resize: 'detect'
       sendTyping: true,
     }, document.getElementById("bot-chat"));
-
-    // localStorage.removeItem('chatConversationId');
-    // localStorage.removeItem('chatToken');
-  }
-
-  // TODO
-  function ajaxCall(url, methodType, callback) {
-    var xhr = new XMLHttpRequest();
-    xhr.open(methodType, url, true);
-    xhr.send();
   }
 });
